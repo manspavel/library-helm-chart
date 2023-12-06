@@ -1,0 +1,87 @@
+{{/*
+    Requirement settings:
+      * name
+      * schedule
+
+    Example of full values
+
+    cronjobs:
+      - name: example
+        command: "run something"
+        schedule: "0 0 * * *"
+        resources:
+          limits:
+            memory: 500Mi
+          requests:
+            memory: 100Mi
+            cpu: 300m
+*/}}
+
+{{- define "library-helm-chart.cronjob" -}}
+
+{{ range .Values.cronjobs }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $.Chart.Name }}-cronjob-{{ .name }}
+  labels:
+    app: "{{ $.Chart.Name }}-cronjob-{{ .name }}"
+spec:
+  concurrencyPolicy: {{ .concurrencyPolicy | default "Forbid" }}
+  schedule: {{ .schedule | quote }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .backoffLimit | default 0 }}
+      template:
+        metadata:
+          labels:
+            app: "{{ $.Chart.Name }}-cronjob-{{ .name }}"
+        spec:
+          imagePullSecrets:
+          - name: registrysecret
+          restartPolicy: OnFailure
+          {{- if $.Values.volumes }}
+          volumes:
+            {{- toYaml $.Values.volumes | nindent 10 }}
+          {{- end }}
+          containers:
+          - name: app
+            image: {{ $.Values.werf.image.app }}
+            {{- if .command }}
+                {{- if kindIs "string" .command }}
+            command: {{ .command | splitList " " | toYaml | nindent 14 }}
+                {{- else if kindIs "slice" .command }}
+            command: {{ .command | toYaml | nindent 14 }}
+                {{- end }}
+            {{- end }}
+            workingDir: /app
+            envFrom:
+            - configMapRef:
+                name: {{ $.Chart.Name }}-common-envs
+            - secretRef:
+                name: {{ $.Chart.Name }}-envs
+            {{- if $.Values.volumeMounts }}
+            volumeMounts:
+              {{- toYaml $.Values.volumeMounts | nindent 12 }}
+            {{- end }}
+            resources:
+            {{ if .resources }}
+            {{ .resources | toYaml | nindent 14 }}
+            {{ else }}
+              requests:
+                cpu: 100m
+                memory: 200Mi
+            {{ end }}
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: vke.vultr.com/node-pool
+                    operator: In
+                    values:
+                    - applications
+{{- end -}}
+
+{{ end }}

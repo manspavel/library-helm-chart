@@ -1,0 +1,29 @@
+{{ define "library-helm-chart.serviceMonitor" }}
+
+{{- range .Values.services -}}
+{{ range .ports }}
+{{ if eq .name "metrics" }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $.Chart.Name }}
+  labels:
+    app: {{ $.Chart.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $.Chart.Name }}
+  endpoints:
+  - interval: {{ .interval | default "30s" }}
+    port: {{ .name | default "metrics" }}
+    path: {{ .path | default "/metrics" }}
+    followRedirects: true
+  namespaceSelector:
+    matchNames:
+    - applications
+{{ end }}
+{{ end }}
+{{ end }}
+
+{{ end }}

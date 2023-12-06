@@ -1,0 +1,22 @@
+{{ define "library-helm-chart.service" }}
+
+{{- range .Values.services -}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ $.Chart.Name }}
+spec:
+  ports:
+{{ range .ports }}
+    - port: {{ .number }}
+      targetPort: {{ .number }}
+      protocol: TCP
+      name: {{ .name }}
+{{ end }}
+  selector:
+    app: {{ $.Chart.Name }}
+{{ end }}
+{{ end }}

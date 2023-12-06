@@ -1,0 +1,76 @@
+{{ define "library-helm-chart.jobs" }}
+
+{{- if .Values.jobs -}}
+{{- range .Values.jobs -}}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $.Chart.Name }}-{{ .name }}
+  annotations:
+    "helm.sh/hook": {{ .hook | quote }}
+    "helm.sh/hook-weight": {{ .weight | quote }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: "{{ $.Chart.Name }}"
+      labels:
+        app: "{{ $.Chart.Name }}-{{ .name }}"
+    spec:
+      imagePullSecrets:
+      - name: registrysecret
+      restartPolicy: Never
+
+{{- if $.Values.accessTo }}
+      initContainers:
+{{- if $.Values.accessTo.postgres }}
+      - name: wait-postgres
+        image: alpine:3.16
+        command: ["/bin/sh", "-c", "while ! nc -w 1 -z acid-postgres-pooler.postgresql.svc.cluster.local 5432; do sleep 2; done"]
+{{- end }}
+
+{{- if $.Values.accessTo.rabbitmq }}
+      - name: wait-rabbitmq
+        image: alpine:3.16
+        command: ["/bin/sh", "-c", "while ! nc -w 1 -z rabbitmq.rabbitmq.svc.cluster.local 5672; do sleep 2; done"]
+{{- end }}
+
+{{- if $.Values.accessTo.redis }}
+      - name: wait-redis
+        image: alpine:3.16
+        command: ["/bin/sh", "-c", "while ! nc -w 1 -z redis-master.redis.svc.cluster.local 6379; do sleep 2; done"]
+{{- end }}
+{{- end }}
+
+      containers:
+      - name: {{ .name }}
+        image: {{ $.Values.werf.image.app }}
+        command: {{ .command }}
+        workingDir: /app
+        envFrom:
+        - configMapRef:
+            name: {{ $.Chart.Name }}-common-envs
+        - secretRef:
+            name: {{ $.Chart.Name }}-envs
+        {{- if $.Values.volumeMounts }}
+        volumeMounts:
+          {{- toYaml $.Values.volumeMounts | nindent 8 }}
+        {{- end }}
+      {{- if $.Values.volumes }}
+      volumes:
+        {{- toYaml $.Values.volumes | nindent 6 }}
+      {{- end }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: vke.vultr.com/node-pool
+                operator: In
+                values:
+                - applications
+{{ end }}
+{{ end }}
+
+{{ end }}

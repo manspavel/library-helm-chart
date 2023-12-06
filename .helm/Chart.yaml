@@ -1,0 +1,5 @@
+apiVersion: v2
+name: library-helm-chart
+description: Library chart for services
+type: library
+version: changeme

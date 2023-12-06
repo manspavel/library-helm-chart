@@ -1,0 +1,15 @@
+{{ define "library-helm-chart.configmap" }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-common-envs
+  annotations:
+    werf.io/weight: "-10"
+data:
+{{- range $key, $val := index .Values.envs }}
+  {{ $key | nindent 2 }}: {{ $val | quote }}
+{{- end }}
+
+{{ end }}

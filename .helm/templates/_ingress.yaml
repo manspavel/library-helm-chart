@@ -1,0 +1,41 @@
+{{ define "library-helm-chart.ingress" }}
+
+{{- if .Values.ingresses -}}
+{{- range .Values.ingresses }}
+{{ $url := .name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ $.Chart.Name }}
+{{- if .annotations }}
+  annotations:
+    {{- toYaml .annotations | nindent 4 }}
+{{- end }}
+spec:
+  ingressClassName: nginx-ingress
+  rules:
+{{- range .rules.hosts }}
+    - host: {{ .host | quote }}
+      http:
+      {{- range .paths }}
+        paths:
+        - path: {{ .path }}
+          pathType: Prefix
+          backend:
+            service:
+              name: {{ .service.name }}
+              port:
+                number: {{ .service.port }}
+{{ end }}
+  tls:
+    - hosts:
+        - {{ .host | quote }}
+      secretName: {{ $.Chart.Name }}-tls-{{ $url }}
+{{ end }}
+{{ end }}
+{{ end }}
+
+{{ end }}
